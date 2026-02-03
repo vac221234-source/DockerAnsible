@@ -1,0 +1,190 @@
+---
+- name: Setup PostgreSQL Master
+  hosts: db_master
+  become: yes
+  vars:
+    db_name: "db_customers"
+    db_user: "admpetr"
+    db_pass: "eve@123"
+    repl_user: "replicator"
+    repl_pass: "repl_password"
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name:
+          - postgresql-16
+          - python3-psycopg2
+          - acl
+        state: present
+        update_cache: yes
+
+    - name: Allow remote connections (postgresql.conf)
+      lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf
+        regexp: "^#?listen_addresses"
+        line: "listen_addresses = '*'"
+
+    - name: Configure WAL level for replication
+      lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf
+        line: "{{ item }}"
+      loop:
+        - "wal_level = replica"
+        - "max_wal_senders = 10"
+
+    - name: Copy pg_hba.conf
+      copy:
+        src: pg_hba.conf
+        dest: /etc/postgresql/16/main/pg_hba.conf
+        owner: postgres
+        group: postgres
+        mode: '0640'
+
+    - name: Restart PostgreSQL
+      service:
+        name: postgresql
+        state: restarted
+
+    - name: Create Database
+      become_user: postgres
+      community.postgresql.postgresql_db:
+        name: "{{ db_name }}"
+
+    - name: Create DB User
+      become_user: postgres
+      community.postgresql.postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_pass }}"
+        db: "{{ db_name }}"
+        priv: "ALL"
+
+    - name: Create Replication User
+      become_user: postgres
+      community.postgresql.postgresql_user:
+        name: "{{ repl_user }}"
+        password: "{{ repl_pass }}"
+        role_attr_flags: REPLICATION
+
+- name: Setup PostgreSQL Replica
+  hosts: db_replica
+  become: yes
+  vars:
+    master_ip: "{{ hostvars['master_server']['ansible_host'] }}"
+    repl_user: "replicator"
+    repl_pass: "repl_password"
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql-16
+        state: present
+        update_cache: yes
+
+    - name: Stop PostgreSQL before replication setup
+      service:
+        name: postgresql
+        state: stopped
+
+    - name: Clear PostgreSQL data directory
+      file:
+        path: /var/lib/postgresql/16/main
+        state: absent
+
+    - name: Backup from Master (Base Backup)
+      become_user: postgres
+      shell: |
+        pg_basebackup -h {{ master_ip }} -D /var/lib/postgresql/16/main -U {{ repl_user }} -P -v -R -X stream
+      environment:
+        PGPASSWORD: "{{ repl_pass }}"
+      # Игнорируем ошибку, если папка не пустая (хотя мы её удалили выше)
+      ignore_errors: yes
+
+    - name: Fix permissions
+      file:
+        path: /var/lib/postgresql/16/main
+        owner: postgres
+        group: postgres
+        mode: '0700'
+        recurse: yes
+
+    - name: Start PostgreSQL Replica
+      service:
+        name: postgresql
+        state: started
+
+- name: Setup Telegram Bot
+  hosts: bot
+  become: yes
+  vars:
+    # Берем IP мастера динамически из инвентаря
+    db_host: "{{ hostvars['master_server']['ansible_host'] }}"
+    # Эти данные должны совпадать с теми, что выше
+    db_name: "db_customers"
+    db_user: "admpetr"
+    db_pass: "eve@123"
+    # Сюда вставь ТОКЕН своего бота
+    bot_token: "8504876037:AAFm_4EOwq5y7IqbIiI3NCuuJS4W_HTVuMk"
+    # Настройки SSH для логов (IP второй машины - реплики)
+    rm_host: "{{ hostvars['replica_server']['ansible_host'] }}"
+  tasks:
+    - name: Install Python and PIP
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+        state: present
+        update_cache: yes
+
+    - name: Create project directory
+      file:
+        path: /opt/tg_bot
+        state: directory
+        mode: '0755'
+
+    - name: Copy bot files
+      copy:
+        src: ../bot/
+        dest: /opt/tg_bot/
+
+    - name: Install dependencies
+      pip:
+        requirements: /opt/tg_bot/requirements.txt
+        extra_args: "--break-system-packages"
+
+    - name: Create .env file for Bot
+      copy:
+        dest: /opt/tg_bot/.env
+        content: |
+          BOT_TOKEN={{ bot_token }}
+          DB_HOST={{ db_host }}
+          DB_PORT=5432
+          DB_NAME={{ db_name }}
+          DB_USER={{ db_user }}
+          DB_PASS={{ db_pass }}
+          RM_HOST={{ rm_host }}
+          RM_PORT=22
+          RM_USER=ansible
+          RM_PASSWORD=1
+
+    - name: Create Systemd Service
+      copy:
+        dest: /etc/systemd/system/tgbot.service
+        content: |
+          [Unit]
+          Description=Telegram Bot Service
+          After=network.target
+
+          [Service]
+          User=root
+          WorkingDirectory=/opt/tg_bot
+          ExecStart=/usr/bin/python3 /opt/tg_bot/bot.py
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Start and Enable Bot Service
+      systemd:
+        name: tgbot
+        state: restarted
+        enabled: yes

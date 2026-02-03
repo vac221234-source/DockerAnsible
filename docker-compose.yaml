@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  bot:
+    build: ./bot
+    env_file: .env
+    depends_on:
+      - db
+    restart: always
+
+  db:
+    build: ./db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  db_repl:
+    build: ./db_repl
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+volumes:
+  postgres_data:

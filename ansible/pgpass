@@ -1,0 +1,2 @@
+*:5432:*:admpetr:eve@123
+*:5432:replication:replicator:repl_password
