@@ -95,7 +95,6 @@
         pg_basebackup -h {{ master_ip }} -D /var/lib/postgresql/16/main -U {{ repl_user }} -P -v -R -X stream
       environment:
         PGPASSWORD: "{{ repl_pass }}"
-      # Игнорируем ошибку, если папка не пустая (хотя мы её удалили выше)
       ignore_errors: yes
 
     - name: Fix permissions
@@ -115,15 +114,11 @@
   hosts: bot
   become: yes
   vars:
-    # Берем IP мастера динамически из инвентаря
     db_host: "{{ hostvars['master_server']['ansible_host'] }}"
-    # Эти данные должны совпадать с теми, что выше
     db_name: "db_customers"
     db_user: "admpetr"
     db_pass: "eve@123"
-    # Сюда вставь ТОКЕН своего бота
     bot_token: "8504876037:AAFm_4EOwq5y7IqbIiI3NCuuJS4W_HTVuMk"
-    # Настройки SSH для логов (IP второй машины - реплики)
     rm_host: "{{ hostvars['replica_server']['ansible_host'] }}"
   tasks:
     - name: Install Python and PIP
