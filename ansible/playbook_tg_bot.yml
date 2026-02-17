@@ -180,7 +180,7 @@
           [Service]
           User=root
           WorkingDirectory={{ project_dir }}/bot
-          ExecStart={{ project_dir }}/venv/bin/python3 {{ project_dir }}/bot/main.py
+          ExecStart={{ project_dir }}/venv/bin/python3 {{ project_dir }}/bot/bot.py
           Restart=always
 
           [Install]
