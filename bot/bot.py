@@ -14,7 +14,6 @@ from telegram.ext import (
     ContextTypes,
 )
 
-
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
@@ -35,7 +34,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 FIND_EMAIL, EMAIL_SAVE_DECISION = range(2)
 FIND_PHONE, PHONE_SAVE_DECISION = range(2, 4)
 CHECK_PASSWORD = 4
@@ -51,11 +49,11 @@ def ssh_command(command):
         client.close()
         
         if result: return result
-        if error: return f"Error output: {error}"
-        return "Command executed, empty output."
+        if error: return f"Ошибка вывода: {error}"
+        return "Команда выполнена, вывод пуст."
     except Exception as e:
-        logger.error(f"SSH Error: {e}")
-        return f"SSH Error: {e}"
+        logger.error(f"Ошибка SSH: {e}")
+        return f"Ошибка SSH: {e}"
 
 def db_query(query, params=None, fetch=False):
     conn = None
@@ -79,30 +77,30 @@ def db_query(query, params=None, fetch=False):
         cur.close()
         return result
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"Ошибка БД: {e}")
         return None
     finally:
         if conn: conn.close()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Bot started! Commands:\n"
-        "/find_email - Find & Save Email\n"
-        "/find_phone_number - Find & Save Phone\n"
-        "/verify_password - Check password complexity\n"
-        "--- System Info (SSH) ---\n"
-        "/get_uptime - Server Uptime\n"
-        "/get_release - OS Release\n"
-        "/get_free - RAM/Disk Usage\n"
-        "/get_apt_list - Installed Packages (Top 20)\n"
-        "/get_repl_logs - DB Replication Status\n"
-        "--- Database ---\n"
-        "/get_emails - List saved emails\n"
-        "/get_phone_numbers - List saved phones"
+        "Бот запущен! Команды:\n"
+        "/find_email - Найти и сохранить Email\n"
+        "/find_phone_number - Найти и сохранить телефон\n"
+        "/verify_password - Проверить сложность пароля\n"
+        "--- Информация о системе (SSH) ---\n"
+        "/get_uptime - Время работы сервера\n"
+        "/get_release - Версия ОС\n"
+        "/get_free - Использование памяти/диска\n"
+        "/get_apt_list - Установленные пакеты (Топ 20)\n"
+        "/get_repl_logs - Статус репликации БД\n"
+        "--- База данных ---\n"
+        "/get_emails - Список сохраненных Email\n"
+        "/get_phone_numbers - Список сохраненных телефонов"
     )
 
 async def find_email_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send text to find Email:")
+    await update.message.reply_text("Отправьте текст для поиска Email:")
     return FIND_EMAIL
 
 async def find_email_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -110,15 +108,15 @@ async def find_email_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text)
     
     if not emails:
-        await update.message.reply_text("Emails not found.")
+        await update.message.reply_text("Email адреса не найдены.")
         return ConversationHandler.END
 
     unique_emails = list(set(emails))
     context.user_data['found_emails'] = unique_emails
     
-    reply_keyboard = [['Yes', 'No']]
+    reply_keyboard = [['Да', 'Нет']]
     await update.message.reply_text(
-        f"Found: {', '.join(unique_emails)}\nSave to DB?",
+        f"Найдено: {', '.join(unique_emails)}\nСохранить в БД?",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
     )
     return EMAIL_SAVE_DECISION
@@ -128,18 +126,18 @@ async def email_save_decision(update: Update, context: ContextTypes.DEFAULT_TYPE
     emails = context.user_data.get('found_emails', [])
     user_id = update.effective_user.id
     
-    if choice == 'yes':
+    if choice == 'да':
         for email in emails:
             db_query("INSERT INTO messages (user_id, text) VALUES (%s, %s)", (user_id, f"Email: {email}"))
-        await update.message.reply_text("Saved.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("Сохранено.", reply_markup=ReplyKeyboardRemove())
     else:
-        await update.message.reply_text("Cancelled.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("Отменено.", reply_markup=ReplyKeyboardRemove())
     
     context.user_data.clear()
     return ConversationHandler.END
 
 async def find_phone_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send text to find Phone:")
+    await update.message.reply_text("Отправьте текст для поиска телефона:")
     return FIND_PHONE
 
 async def find_phone_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -147,15 +145,15 @@ async def find_phone_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     phones = re.findall(r'(?:\+7|8)[\s-]?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}', text)
     
     if not phones:
-        await update.message.reply_text("Phones not found.")
+        await update.message.reply_text("Телефоны не найдены.")
         return ConversationHandler.END
 
     unique_phones = list(set(phones))
     context.user_data['found_phones'] = unique_phones
     
-    reply_keyboard = [['Yes', 'No']]
+    reply_keyboard = [['Да', 'Нет']]
     await update.message.reply_text(
-        f"Found: {', '.join(unique_phones)}\nSave to DB?",
+        f"Найдено: {', '.join(unique_phones)}\nСохранить в БД?",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
     )
     return PHONE_SAVE_DECISION
@@ -165,18 +163,18 @@ async def phone_save_decision(update: Update, context: ContextTypes.DEFAULT_TYPE
     phones = context.user_data.get('found_phones', [])
     user_id = update.effective_user.id
     
-    if choice == 'yes':
+    if choice == 'да':
         for phone in phones:
             db_query("INSERT INTO messages (user_id, text) VALUES (%s, %s)", (user_id, f"Phone: {phone}"))
-        await update.message.reply_text("Saved.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("Сохранено.", reply_markup=ReplyKeyboardRemove())
     else:
-        await update.message.reply_text("Cancelled.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("Отменено.", reply_markup=ReplyKeyboardRemove())
         
     context.user_data.clear()
     return ConversationHandler.END
 
 async def verify_password_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send password to verify complexity:")
+    await update.message.reply_text("Отправьте пароль для проверки сложности:")
     return CHECK_PASSWORD
 
 async def verify_password_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -186,60 +184,60 @@ async def verify_password_process(update: Update, context: ContextTypes.DEFAULT_
         re.search(r"\d", password) and
         re.search(r"[a-z]", password) and
         re.search(r"[A-Z]", password)):
-        await update.message.reply_text("Password is STRONG.")
+        await update.message.reply_text("Пароль СЛОЖНЫЙ.")
     else:
         await update.message.reply_text(
-            "Password is WEAK.\n"
-            "Requirements:\n"
-            "- At least 8 characters\n"
-            "- At least 1 digit\n"
-            "- Uppercase and Lowercase letters"
+            "Пароль ПРОСТОЙ.\n"
+            "Требования:\n"
+            "- Минимум 8 символов\n"
+            "- Минимум 1 цифра\n"
+            "- Заглавные и строчные буквы"
         )
     return ConversationHandler.END
 
 async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     output = ssh_command("uptime")
-    await update.message.reply_text(f"System Uptime:\n{output}")
+    await update.message.reply_text(f"Время работы системы:\n{output}")
 
 async def get_release(update: Update, context: ContextTypes.DEFAULT_TYPE):
     output = ssh_command("cat /etc/*release | grep PRETTY_NAME")
-    await update.message.reply_text(f"OS Release:\n{output}")
+    await update.message.reply_text(f"Версия ОС:\n{output}")
 
 async def get_free(update: Update, context: ContextTypes.DEFAULT_TYPE):
     output = ssh_command("free -h")
-    await update.message.reply_text(f"Memory Usage:\n{output}")
+    await update.message.reply_text(f"Использование памяти:\n{output}")
 
 async def get_apt_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Fetching package list (Top 20)...")
+    await update.message.reply_text("Получение списка пакетов (Топ 20)...")
 
     output = ssh_command("apt list --installed | head -n 20")
-    await update.message.reply_text(f"Installed Packages:\n```\n{output}\n```", parse_mode='Markdown')
+    await update.message.reply_text(f"Установленные пакеты:\n```\n{output}\n```", parse_mode='Markdown')
 
 async def get_repl_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Requesting DB logs...")
+    await update.message.reply_text("Запрос логов БД...")
     cmd = "ps -ef | grep 'postgres' | grep -v grep"
     output = ssh_command(cmd)
     
-    await update.message.reply_text(f"Replication Process Status:\n```\n{output}\n```", parse_mode='Markdown')
+    await update.message.reply_text(f"Статус процесса репликации:\n```\n{output}\n```", parse_mode='Markdown')
 
 async def get_emails_from_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = db_query("SELECT text FROM messages WHERE text LIKE 'Email:%' ORDER BY id DESC LIMIT 10", fetch=True)
     if rows:
         text = "\n".join([r[0] for r in rows])
-        await update.message.reply_text(f"Last Emails:\n{text}")
+        await update.message.reply_text(f"Последние Email:\n{text}")
     else:
-        await update.message.reply_text("No emails in DB.")
+        await update.message.reply_text("Нет Email в БД.")
 
 async def get_phones_from_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = db_query("SELECT text FROM messages WHERE text LIKE 'Phone:%' ORDER BY id DESC LIMIT 10", fetch=True)
     if rows:
         text = "\n".join([r[0] for r in rows])
-        await update.message.reply_text(f"Last Phones:\n{text}")
+        await update.message.reply_text(f"Последние телефоны:\n{text}")
     else:
-        await update.message.reply_text("No phones in DB.")
+        await update.message.reply_text("Нет телефонов в БД.")
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Cancelled.", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Отменено.", reply_markup=ReplyKeyboardRemove())
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -254,7 +252,7 @@ def main():
         entry_points=[CommandHandler('find_email', find_email_start)],
         states={
             FIND_EMAIL: [MessageHandler(filters.TEXT & ~filters.COMMAND, find_email_process)],
-            EMAIL_SAVE_DECISION: [MessageHandler(filters.Regex('^(Yes|No|yes|no)$'), email_save_decision)]
+            EMAIL_SAVE_DECISION: [MessageHandler(filters.Regex('^(Да|Нет|да|нет)$'), email_save_decision)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
@@ -263,7 +261,7 @@ def main():
         entry_points=[CommandHandler('find_phone_number', find_phone_start)],
         states={
             FIND_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, find_phone_process)],
-            PHONE_SAVE_DECISION: [MessageHandler(filters.Regex('^(Yes|No|yes|no)$'), phone_save_decision)]
+            PHONE_SAVE_DECISION: [MessageHandler(filters.Regex('^(Да|Нет|да|нет)$'), phone_save_decision)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
@@ -276,14 +274,12 @@ def main():
         fallbacks=[CommandHandler('cancel', cancel)]
     )
 
-
     application.add_handler(conv_email)
     application.add_handler(conv_phone)
     application.add_handler(conv_password)
     
     application.add_handler(CommandHandler("start", start))
     
-
     application.add_handler(CommandHandler("get_emails", get_emails_from_db))
     application.add_handler(CommandHandler("get_phone_numbers", get_phones_from_db))
     
