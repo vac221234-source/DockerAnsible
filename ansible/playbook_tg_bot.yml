@@ -69,7 +69,7 @@
   hosts: db_replica
   become: yes
   vars:
-    master_ip: "{{ hostvars['db_master']['ansible_host'] }}"
+    master_ip: "{{ hostvars[groups['db_master'][0]]['ansible_host'] }}"
     repl_user: "replicator"
     repl_pass: "repl_password"
   tasks:
@@ -117,16 +117,15 @@
         name: postgresql
         state: started
 
-
 - name: Setup Telegram Bot
   hosts: bot
   become: yes
   vars:
-    db_host: "{{ hostvars['db_master']['ansible_host'] }}"
+    db_host: "{{ hostvars[groups['db_master'][0]]['ansible_host'] }}"
     db_name: "db_customers"
     db_user: "admpetr"
     db_pass: "eve@123"
-    bot_token: "8504876037:AAFm_4Eowq5y7IqbIiI3NCuuJS4W_HTVuMk"
+    bot_token: "8504876037:AAFm_4EOwq5y7IqbIiI3NCuuJS4W_HTVuMk"
     project_dir: "/opt/tg_bot"
 
   tasks:
@@ -139,6 +138,11 @@
           - python3-venv
         state: present
         update_cache: yes
+
+    - name: Clean project directory (fix git error)
+      file:
+        path: "{{ project_dir }}"
+        state: absent
 
     - name: Clone Bot Code from GitHub
       git:
@@ -167,6 +171,7 @@
     - name: Create Systemd Service
       copy:
         dest: /etc/systemd/system/tgbot.service
+        mode: '0644'
         content: |
           [Unit]
           Description=Telegram Bot Service
