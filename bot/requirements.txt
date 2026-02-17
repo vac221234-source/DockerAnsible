@@ -1,4 +1,0 @@
-python-telegram-bot==20.*
-psycopg2-binary
-python-dotenv
-paramiko
