@@ -85,16 +85,13 @@ def db_query(query, params=None, fetch=False):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Бот запущен! Команды:\n"
-        "/find_email - Найти и сохранить Email\n"
         "/find_phone_number - Найти и сохранить телефон\n"
         "/verify_password - Проверить сложность пароля\n"
-        "--- Информация о системе (SSH) ---\n"
         "/get_uptime - Время работы сервера\n"
         "/get_release - Версия ОС\n"
         "/get_free - Использование памяти/диска\n"
-        "/get_apt_list - Установленные пакеты (Топ 20)\n"
+        "/get_apt_list - Установленные пакеты \n"
         "/get_repl_logs - Статус репликации БД\n"
-        "--- База данных ---\n"
         "/get_emails - Список сохраненных Email\n"
         "/get_phone_numbers - Список сохраненных телефонов"
     )
